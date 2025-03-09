@@ -1,0 +1,141 @@
+---
+description: Apply this rule when working with database operations, creating database queries, setting up database connections, or integrating authentication with database operations
+globs: 
+alwaysApply: false
+---
+ # Database Integration Rules
+
+## Core Principles
+- Use Prisma as the ONLY database client
+- NO direct database connections or alternative clients (e.g., Supabase client, raw SQL)
+- All database operations MUST go through Prisma client
+- Keep database logic in dedicated service layers
+- Use the User Table "id" for referencing the user not the "clerkId"
+
+## Database Access Pattern
+```typescript
+// ✅ CORRECT: Using Prisma client
+import { prisma } from '@/lib/prisma'
+
+async function getUserPosts(userId: string) {
+  return await prisma.post.findMany({
+    where: { userId },
+    include: { author: true }
+  })
+}
+
+// ❌ INCORRECT: Direct database connection
+import { supabase } from '@/lib/supabase'
+const { data } = await supabase.from('posts').select()
+```
+
+## Best Practices
+1. Always use Prisma's type-safe queries
+2. Implement database operations in service layers under `src/services/`
+3. Use Prisma's middleware for cross-cutting concerns
+4. Leverage Prisma's transaction API for atomic operations
+5. Keep Prisma schema as source of truth
+6. Use migrations for all schema changes
+
+## Error Handling
+```typescript
+// Recommended error handling pattern
+try {
+  const result = await prisma.user.create({
+    data: userData
+  })
+  return result
+} catch (error) {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    // Handle known Prisma errors (e.g., unique constraint violations)
+  }
+  throw error
+}
+```
+
+## Service Layer Structure
+```
+src/
+└── services/
+    ├── user.service.ts
+    ├── post.service.ts
+    └── comment.service.ts
+```
+
+## Authentication Integration
+- Use Clerk for auth, but store user data in database through Prisma
+- Sync Clerk webhook events with database using Prisma operations
+- Never bypass Prisma for user data management
+
+## Performance Considerations
+- Use Prisma's include/select for efficient queries
+- Implement proper pagination using Prisma's skip/take
+- Cache frequently accessed data at application level
+- Use Prisma's findUnique for single record lookups
+
+## Security Guidelines
+- Never expose Prisma client on client-side
+- Use server components or API routes for database operations
+- Implement proper data validation before Prisma operations
+- Use Prisma's middleware for audit logging if needed
+
+## Environment Variables & Project Setup
+Keep your database connection string in a secure .env file, for example:
+''' bash
+# .env
+DATABASE_URL="postgresql://user:password@localhost:5432/dbname"
+'''
+Reference it in your Prisma configuration file (e.g., prisma/schema.prisma):
+''' prisma
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+'''
+Never commit .env files to version control. Add them to .gitignore or use secure secret management solutions if deploying to cloud providers.
+
+## Transactions & Concurrency
+Use Prisma’s $transaction method to handle multiple queries atomically and to manage concurrency:
+''' typescript
+// Example usage of Prisma transactions
+import { prisma } from '@/lib/prisma';
+
+async function createUserAndPost(userData: any, postData: any) {
+  return await prisma.$transaction([
+    prisma.user.create({ data: userData }),
+    prisma.post.create({ data: postData }),
+  ]);
+}
+'''
+$transaction ensures all operations succeed or fail together
+For more complex concurrency scenarios, consider using robust locking mechanisms or queue systems, but start with $transaction for most standard use cases.
+
+## Additional Error Handling / Retry Logic
+When dealing with known Prisma error codes, you may implement specific handling or retries:
+''' typescript
+import { Prisma } from '@prisma/client';
+
+try {
+  // e.g. create user with unique email
+  await prisma.user.create({ data: { email: userEmail, ... } });
+} catch (error) {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    switch (error.code) {
+      case 'P2002': // Unique constraint failed
+        // Handle uniqueness violation (e.g., email already in use)
+        break;
+      case 'P2025': // Record not found
+        // Handle record not found cases
+        break;
+      default:
+        // Handle or log other Prisma error codes
+        break;
+    }
+  }
+  // For transient issues, you could implement a simple retry here
+  throw error;
+}
+'''
+Use error.code to handle specific PrismaClientKnownRequestError cases (e.g. P2002 for unique violations).
+Consider using external libraries for retries if needed (e.g., p-retry) for more robust logic.
+Always log errors for diagnostic purposes, but avoid exposing sensitive data to end-users.

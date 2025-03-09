@@ -1,0 +1,42 @@
+---
+description: When setting up clerk auth or refactoring it
+globs: src/**/*
+alwaysApply: false
+---
+- authMiddleware is deprecated; use clerkMiddleware instead.
+- Make sure to protect /app routes as a starting point in the middlewares.
+
+<example>
+import { authMiddleware } -> import { clerkMiddleware }
+</example>
+
+## Replacing Auth Middleware in Next.js
+To replace existing `authMiddleware` in your Next.js setup, open your `middleware.ts` file (in the root or `app/` folder) and swap out references to `authMiddleware` with `clerkMiddleware`.
+
+<before>
+**Before:**
+```ts
+import { authMiddleware } from '@clerk/nextjs';
+
+export default authMiddleware({
+  publicRoutes: ['/login', '/register'],
+});
+
+// Optionally:
+export const config = {
+  matcher: ['/((?!_next).*)'],
+};
+</before>
+
+<after>
+import { clerkMiddleware } from '@clerk/nextjs';
+
+export default clerkMiddleware({
+  publicRoutes: ['/login', '/register'],
+});
+
+// Optionally:
+export const config = {
+  matcher: ['/((?!_next).*)'],
+};
+</after>
