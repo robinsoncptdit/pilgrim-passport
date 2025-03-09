@@ -154,5 +154,56 @@ Reports
   - data (JSON)
   - generated_at
 ```
+
+## Services
+- User Service
+- Parish Service
+- Visit Service
+
+## Service Implementation
+- User Service
+  ```typescript
+  import { prisma } from '@/lib/prisma'
+
+  export const UserService = {
+    async createUser(data: { id: string; email: string; profile_data?: any }) {
+      return await prisma.user.create({
+        data
+      })
+    },
+
+    async getUserById(id: string) {
+      return await prisma.user.findUnique({
+        where: { id }
+      })
+    }
+  }
+  ```
+
+- Parish Service
+  ```typescript
+  export const ParishService = {
+    async createParish(data: { name: string; location: string; /* ... */ }) {
+      return await prisma.parish.create({
+        data
+      })
+    },
+
+    async getParishes() {
+      return await prisma.parish.findMany()
+    }
+  }
+  ```
+
+- Visit Service
+  ```typescript
+  export const VisitService = {
+    async recordVisit(data: { user_id: string; parish_id: string; verification_data?: any }) {
+      return await prisma.visit.create({
+        data
+      })
+    }
+  }
+  ```
 ```
 
